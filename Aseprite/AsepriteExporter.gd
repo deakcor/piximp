@@ -93,15 +93,16 @@ func next_frame() -> void:
 	current_layer = 0
 	chunk_count = 0
 
-func create_file(path : String) -> void:
+func create_file(path : String) -> int:
 	var file := File.new()
 	
-	file.open(path, File.WRITE)
-	
-	file.store_buffer(_get_header(final_file_buffer.size(), frame_count, canvas_width, canvas_height))
-	file.store_buffer(final_file_buffer)
+	var err=file.open(path, File.WRITE)
+	if err==OK:
+		file.store_buffer(_get_header(final_file_buffer.size(), frame_count, canvas_width, canvas_height))
+		file.store_buffer(final_file_buffer)
 	
 	file.close()
+	return err
 
 func _get_header(
 		file_size_in_bytes : int, frames : int, 
