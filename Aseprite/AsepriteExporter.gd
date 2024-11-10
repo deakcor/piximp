@@ -5,10 +5,10 @@ const HEADER_SIZE_IN_BYTES := 128
 const FRAME_HEADER_SIZE_IN_BYTES := 16
 const CHUNK_HEADER_SIZE := 6
 
-var frame_buffer := PoolByteArray([])
-var layers_buffer := PoolByteArray([])
-var tags_buffer := PoolByteArray([])
-var final_file_buffer := PoolByteArray([])
+var frame_buffer := PackedByteArray([])
+var layers_buffer := PackedByteArray([])
+var tags_buffer := PackedByteArray([])
+var final_file_buffer := PackedByteArray([])
 
 var current_layer := 0
 var frame_count := 0
@@ -20,13 +20,13 @@ var canvas_height = 0
 var frame_duration_ms := 100.0
 var crop_used_rect := false
 
-enum  Flags{
-	FLAGS_VISIBLE = 1
-	FLAG_EDITABLE = 2
-	FLAG_LOCK_MOVEMENT = 4
-	FLAG_BACKGROUND = 8
-	FLAG_LINKED_CELS = 16
-	FLAG_COLLAPSED = 32
+enum Flags{
+	FLAGS_VISIBLE = 1,
+	FLAG_EDITABLE = 2,
+	FLAG_LOCK_MOVEMENT = 4,
+	FLAG_BACKGROUND = 8,
+	FLAG_LINKED_CELS = 16,
+	FLAG_COLLAPSED = 32,
 	FLAG_REFERENCE_LAYER = 64
 }
 
@@ -67,7 +67,7 @@ func add_cel(image : Image, img_position := Vector2.ZERO, especific_index := -1)
 	current_layer += 1
 
 func next_frame() -> void:
-	var buffer := PoolByteArray([])
+	var buffer := PackedByteArray([])
 	
 	#first frame only things
 	if frame_count == 0:
@@ -94,21 +94,19 @@ func next_frame() -> void:
 	chunk_count = 0
 
 func create_file(path : String) -> int:
-	var file := File.new()
-	
-	var err=file.open(path, File.WRITE)
-	if err==OK:
+	var file=FileAccess.open(path, FileAccess.WRITE)
+	if file.get_open_error()==OK:
 		file.store_buffer(_get_header(final_file_buffer.size(), frame_count, canvas_width, canvas_height))
 		file.store_buffer(final_file_buffer)
 	
 	file.close()
-	return err
+	return file.get_error()
 
 func _get_header(
 		file_size_in_bytes : int, frames : int, 
 		width_in_pixel : int, height_in_pixel
-	) -> PoolByteArray:
-	var buffer := PoolByteArray([])
+	) -> PackedByteArray:
+	var buffer := PackedByteArray([])
 	
 	#DWORD       File size
 	buffer.append_array(int_to_dword(file_size_in_bytes + 0xA5E0))
@@ -171,8 +169,8 @@ func _get_header(
 func _create_frame(
 		size_in_bytes : int, frame_duration_in_milliseconds : int,
 		number_of_chuks : int
-	) -> PoolByteArray:
-	var buffer := PoolByteArray([])
+	) -> PackedByteArray:
+	var buffer := PackedByteArray([])
 	
 	#DWORD       Size of this frame
 	buffer.append_array(int_to_dword(size_in_bytes + FRAME_HEADER_SIZE_IN_BYTES))
@@ -197,8 +195,8 @@ func _create_frame(
 
 func _create_chunk_header(
 	chunk_size : int, chunk_type : int
-	) -> PoolByteArray:
-	var buffer := PoolByteArray([])
+	) -> PackedByteArray:
+	var buffer := PackedByteArray([])
 	
 #	DWORD       Chunk size
 	buffer.append_array(int_to_dword(chunk_size + CHUNK_HEADER_SIZE))
@@ -209,8 +207,8 @@ func _create_chunk_header(
 
 func _create_layer_chunk(
 		layer_level : int, layer_name : String, flags : int = 3, opacity : int = 255, type : int = 0
-	) -> PoolByteArray:
-	var buffer := PoolByteArray([])
+	) -> PackedByteArray:
+	var buffer := PackedByteArray([])
 	#WORD        Flags:1=visible 2=editable 4 =lock movement 8=background 16=linked cels 32=collapsed 64=reference layer
 	buffer.append_array(int_to_word(flags)) # editable and visible
 	#WORD        Layer type:0=Normal 1=Group
@@ -235,15 +233,15 @@ func _create_layer_chunk(
 	#STRING      Layer name
 	buffer.append_array(string_to_asa_string(layer_name))
 	
-	var header : PoolByteArray = _create_chunk_header(buffer.size(), 0x2004)
+	var header : PackedByteArray = _create_chunk_header(buffer.size(), 0x2004)
 	header.append_array(buffer)
 	return header
 
 
 func _create_tag_chunk(
 		tag_name : String, from_frame : int, to_frame : int
-	) -> PoolByteArray:
-	var buffer := PoolByteArray([])
+	) -> PackedByteArray:
+	var buffer := PackedByteArray([])
 	
 	#WORD        Number of tags
 	buffer.append_array(int_to_word(1))
@@ -274,7 +272,7 @@ func _create_tag_chunk(
 	buffer.append_array(string_to_asa_string(tag_name))
 	
 	
-	var header : PoolByteArray = _create_chunk_header(buffer.size(), 0x2018)
+	var header : PackedByteArray = _create_chunk_header(buffer.size(), 0x2018)
 	header.append_array(buffer)
 	return header
 
@@ -283,8 +281,8 @@ func _create_cel_chunk(
 		image : Image,
 		img_position : Vector2
 		
-	) -> PoolByteArray:
-	var buffer := PoolByteArray([])
+	) -> PackedByteArray:
+	var buffer := PackedByteArray([])
 	
 	
 	#WORD        Layer index
@@ -305,13 +303,13 @@ func _create_cel_chunk(
 	buffer.append_array(image_to_data(image))
 	
 	
-	var header : PoolByteArray = _create_chunk_header(buffer.size(), 0x2005)
+	var header : PackedByteArray = _create_chunk_header(buffer.size(), 0x2005)
 	header.append_array(buffer)
 	
 	return header
 
-func _create_color_profile_chunk() -> PoolByteArray:
-	var buffer := PoolByteArray([])
+func _create_color_profile_chunk() -> PackedByteArray:
+	var buffer := PackedByteArray([])
 	
 	#WORD        Type: 0=No color 1=sRGB 2= ICC profile
 	buffer.append_array(int_to_word(1))
@@ -323,13 +321,13 @@ func _create_color_profile_chunk() -> PoolByteArray:
 	for i in range(0, 8):
 		buffer.append(0)
 	
-	var header : PoolByteArray = _create_chunk_header(buffer.size(), 0x2007)
+	var header : PackedByteArray = _create_chunk_header(buffer.size(), 0x2007)
 	header.append_array(buffer)
 	return header
 
 #hardcoded color palette with white and black
-func _create_color_palette() -> PoolByteArray:
-	var buffer := PoolByteArray([])
+func _create_color_palette() -> PackedByteArray:
+	var buffer := PackedByteArray([])
 	
 	#DWORD       New palette size (total number of entries)
 	buffer.append_array(int_to_dword(2))
@@ -357,13 +355,13 @@ func _create_color_palette() -> PoolByteArray:
 	buffer.append(0)
 	buffer.append(255)
 	
-	var header : PoolByteArray = _create_chunk_header(buffer.size(), 0x2019)
+	var header : PackedByteArray = _create_chunk_header(buffer.size(), 0x2019)
 	header.append_array(buffer)
 	return header
 
 #hardcoded color palette with white and black
-func _create_old_color_palette() -> PoolByteArray:
-	var buffer := PoolByteArray([])
+func _create_old_color_palette() -> PackedByteArray:
+	var buffer := PackedByteArray([])
 	#WORD        Number of packets
 	buffer.append_array(int_to_word(1))
 	
@@ -380,13 +378,13 @@ func _create_old_color_palette() -> PoolByteArray:
 	buffer.append(0)
 	buffer.append(0)
 	
-	var header : PoolByteArray = _create_chunk_header(buffer.size(), 0x0004)
+	var header : PackedByteArray = _create_chunk_header(buffer.size(), 0x0004)
 	header.append_array(buffer)
 	return header
 
-func string_to_asa_string(string : String) -> PoolByteArray:
-	var asa_string := PoolByteArray([])
-	var string_in_bytes := string.to_utf8()
+func string_to_asa_string(string : String) -> PackedByteArray:
+	var asa_string := PackedByteArray([])
+	var string_in_bytes := string.to_utf8_buffer()
 	
 	asa_string.append_array(int_to_word(string_in_bytes.size()))
 	asa_string.append_array(string_in_bytes)
@@ -396,8 +394,8 @@ func string_to_asa_string(string : String) -> PoolByteArray:
 #takes a instace of Image_clase
 #makes a header with width and height
 #then it appends every pixel in rgba 32
-func image_to_data(image : Image) -> PoolByteArray:
-	var buffer := PoolByteArray([])
+func image_to_data(image : Image) -> PackedByteArray:
+	var buffer := PackedByteArray([])
 	if !image is Image:
 		image=Image.new()
 		image.create(1,1,false,Image.FORMAT_RGBA8)
@@ -405,27 +403,26 @@ func image_to_data(image : Image) -> PoolByteArray:
 	if crop_used_rect:
 		var used_rect := image.get_used_rect()
 		image = image.get_rect(used_rect)
-	image.lock()
 	#  WORD      Width in pixels
 	buffer.append_array(int_to_word(image.get_width()))
 	#  WORD      Height in pixels
 	buffer.append_array(int_to_word(image.get_height()))
 	#  BYTE[]    "Raw Cel" data compressed with ZLIB method
-	var image_buffer := image.get_data().compress(File.COMPRESSION_DEFLATE)
+	var image_buffer := image.get_data().compress(FileAccess.COMPRESSION_DEFLATE)
 	
 	buffer.append_array(image_buffer)
 	return buffer
 
 #returns a poolVectorArray of 2 bytes with little-endian from a int
-func int_to_word(number :int = 0) -> PoolByteArray:
-	var word := PoolByteArray([])
+func int_to_word(number :int = 0) -> PackedByteArray:
+	var word := PackedByteArray([])
 	word.append(number)
 	word.append(number >> 8)
 	return word
 
 #returns a poolVectorArray of 4 bytes with little-endian from a int
-func int_to_dword(number :int = 0) -> PoolByteArray:
-	var dword := PoolByteArray([])
+func int_to_dword(number :int = 0) -> PackedByteArray:
+	var dword := PackedByteArray([])
 	
 	dword.append(number)
 	dword.append(number >> 8)
