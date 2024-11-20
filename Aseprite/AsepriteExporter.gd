@@ -397,8 +397,7 @@ func string_to_asa_string(string : String) -> PackedByteArray:
 func image_to_data(image : Image) -> PackedByteArray:
 	var buffer := PackedByteArray([])
 	if !image is Image:
-		image=Image.new()
-		image.create(1,1,false,Image.FORMAT_RGBA8)
+		image=Image.create_empty(1,1,false,Image.FORMAT_RGBA8)
 		image.fill(Color(0,0,0,0))
 	if crop_used_rect:
 		var used_rect := image.get_used_rect()
