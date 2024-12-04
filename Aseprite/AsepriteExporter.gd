@@ -401,7 +401,7 @@ func image_to_data(image : Image) -> PackedByteArray:
 		image.fill(Color(0,0,0,0))
 	if crop_used_rect:
 		var used_rect := image.get_used_rect()
-		image = image.get_rect(used_rect)
+		image = image.get_region(used_rect)
 	#  WORD      Width in pixels
 	buffer.append_array(int_to_word(image.get_width()))
 	#  WORD      Height in pixels
